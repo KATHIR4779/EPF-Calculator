@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EPF Withdrawal &amp; Maturity Calculator — with TDS Rules</title>
+<style>
+  :root {
+    --ledger-green: #1f3d2b;
+    --ledger-green-dark: #14281c;
+    --paper: #f0ead6;
+    --paper-line: #d8cfae;
+    --ink: #2c3e63;
+    --stamp-red: #a13d2b;
+    --gold: #b08d57;
+    --paper-shadow: rgba(20, 40, 28, 0.25);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--ledger-green);
+    background-image:
+      repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 12px);
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--ink);
+    padding: 32px 16px 64px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .masthead {
+    text-align: center;
+    color: var(--paper);
+    margin-bottom: 28px;
+  }
+
+  .masthead .eyebrow {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+
+  .masthead h1 {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-weight: 700;
+    font-size: clamp(24px, 4vw, 34px);
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
+
+  .masthead p {
+    font-size: 13px;
+    color: var(--paper-line);
+    margin-top: 8px;
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.5;
+  }
+
+  .passbook {
+    background: var(--paper);
+    width: 100%;
+    max-width: 720px;
+    border-radius: 2px;
+    box-shadow: 0 24px 48px var(--paper-shadow), 0 2px 0 var(--gold);
+    position: relative;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .passbook::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 46px;
+    background: repeating-linear-gradient(
+      to bottom,
+      var(--stamp-red) 0px, var(--stamp-red) 2px,
+      transparent 2px, transparent 10px
+    );
+    opacity: 0.15;
+  }
+
+  .passbook-header {
+    background: var(--ledger-green-dark);
+    color: var(--paper);
+    padding: 18px 28px 18px 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: Georgia, serif;
+  }
+
+  .passbook-header .title {
+    font-size: 15px;
+    letter-spacing: 1px;
+    font-weight: 700;
+  }
+
+  .passbook-header .acct {
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+
+  .body {
+    padding: 28px 28px 28px 60px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--ledger-green-dark);
+    margin-bottom: 24px;
+  }
+
+  .tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    font-family: Georgia, serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    padding: 10px 6px;
+    cursor: pointer;
+    color: var(--ink);
+    opacity: 0.45;
+    border-bottom: 3px solid transparent;
+    transition: opacity 0.15s ease;
+  }
+
+  .tab.active {
+    opacity: 1;
+    border-bottom: 3px solid var(--stamp-red);
+  }
+
+  .tab:hover { opacity: 0.8; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .entry-row {
+    display: grid;
+    grid-template-columns: 1fr 140px;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--paper-line);
+  }
+
+  .entry-row label {
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .entry-row .hint {
+    display: block;
+    font-size: 10.5px;
+    color: #6b7a6f;
+    margin-top: 2px;
+    font-family: Georgia, serif;
+    font-style: italic;
+  }
+
+  input[type="number"], select {
+    width: 100%;
+    padding: 7px 8px;
+    background: #fffdf5;
+    border: 1px solid var(--paper-line);
+    border-radius: 2px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: var(--ink);
+    text-align: right;
+  }
+
+  input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: var(--stamp-red);
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--paper-line);
+  }
+  .checkbox-row label { font-size: 13px; }
+
+  button.calc-btn {
+    margin-top: 22px;
+    width: 100%;
+    background: var(--ledger-green-dark);
+    color: var(--paper);
+    border: none;
+    padding: 14px;
+    font-family: Georgia, serif;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  button.calc-btn:hover { background: #0d1c12; }
+  button.calc-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  .result-block {
+    margin-top: 24px;
+    position: relative;
+    display: none;
+  }
+  .result-block.show { display: block; }
+
+  .ledger-line {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--paper-line);
+    font-size: 13.5px;
+  }
+  .ledger-line.total {
+    font-weight: 700;
+    font-size: 16px;
+    border-bottom: 2px solid var(--ledger-green-dark);
+    border-top: 2px solid var(--ledger-green-dark);
+    margin-top: 6px;
+    padding: 12px 0;
+  }
+  .ledger-line .amt { font-variant-numeric: tabular-nums; }
+  .ledger-line .amt.deduct { color: var(--stamp-red); }
+  .ledger-line .amt.credit { color: var(--ledger-green-dark); }
+
+  .stamp {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 92px;
+    height: 92px;
+    border: 3px solid var(--stamp-red);
+    border-radius: 50%;
+    color: var(--stamp-red);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: Georgia, serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transform: rotate(-14deg);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .stamp.show {
+    animation: stampIn 0.35s ease-out forwards;
+  }
+  @keyframes stampIn {
+    0% { opacity: 0; transform: rotate(-14deg) scale(1.6); }
+    60% { opacity: 0.85; transform: rotate(-14deg) scale(0.95); }
+    100% { opacity: 0.85; transform: rotate(-14deg) scale(1); }
+  }
+
+  .note {
+    margin-top: 18px;
+    font-size: 11.5px;
+    color: #5a6a5e;
+    font-family: Georgia, serif;
+    font-style: italic;
+    line-height: 1.6;
+    border-top: 1px dashed var(--paper-line);
+    padding-top: 14px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stamp.show { animation: none; opacity: 0.85; }
+  }
+
+  @media (max-width: 480px) {
+    .body { padding: 22px 16px 22px 46px; }
+    .passbook::before { width: 30px; }
+    .passbook-header { padding: 16px 16px 16px 40px; flex-direction: column; align-items: flex-start; gap: 4px; }
+    .entry-row { grid-template-columns: 1fr; }
+    input[type="number"], select { text-align: left; }
+  }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="eyebrow">Provident Fund Office · Estimate Only</div>
+  <h1>EPF Withdrawal &amp; Maturity Register</h1>
+  <p>Work out what actually lands in your account after TDS, or project your corpus at retirement. Not an official EPFO tool — figures are estimates for planning purposes.</p>
+</div>
+
+<div class="passbook">
+  <div class="passbook-header">
+    <span class="title">Member Passbook</span>
+    <span class="acct">FORM · EST-01</span>
+  </div>
+  <div class="body">
+    <div class="tabs">
+      <button class="tab active" data-tab="withdrawal">Withdrawal + TDS</button>
+      <button class="tab" data-tab="maturity">Maturity Projection</button>
+    </div>
+
+    <!-- WITHDRAWAL PANEL -->
+    <div class="panel active" id="withdrawal">
+      <div class="entry-row">
+        <label for="w-amount">Total PF balance to withdraw (₹)
+          <span class="hint">Employee + employer share, as shown in your passbook</span>
+        </label>
+        <input type="number" id="w-amount" min="0" placeholder="e.g. 250000">
+      </div>
+
+      <div class="entry-row">
+        <label for="w-years">Total years of continuous service
+          <span class="hint">Across employer(s), if PF was transferred not withdrawn</span>
+        </label>
+        <input type="number" id="w-years" min="0" step="0.1" placeholder="e.g. 3.5">
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="w-pan">
+        <label for="w-pan">PAN is linked to my PF account</label>
+      </div>
+
+      <div class="checkbox-row">
+        <input type="checkbox" id="w-form15g">
+        <label for="w-form15g">Submitting Form 15G/15H (total income below taxable limit)</label>
+      </div>
+
+      <button class="calc-btn" onclick="calcWithdrawal()">Post Entry</button>
+
+      <div class="result-block" id="w-result">
+        <div class="stamp" id="w-stamp">TDS<br>Applied</div>
+        <div class="ledger-line"><span>Gross withdrawal amount</span><span class="amt" id="w-gross">₹0</span></div>
+        <div class="ledger-line"><span>TDS rate applied</span><span class="amt" id="w-rate">0%</span></div>
+        <div class="ledger-line"><span>TDS deducted</span><span class="amt deduct" id="w-tds">₹0</span></div>
+        <div class="ledger-line total"><span>Net amount credited to you</span><span class="amt credit" id="w-net">₹0</span></div>
+        <div class="note" id="w-note"></div>
+      </div>
+    </div>
+
+    <!-- MATURITY PANEL -->
+    <div class="panel" id="maturity">
+      <div class="entry-row">
+        <label for="m-corpus">Current PF corpus (₹)
+          <span class="hint">Your latest passbook closing balance</span>
+        </label>
+        <input type="number" id="m-corpus" min="0" placeholder="e.g. 400000">
+      </div>
+
+      <div class="entry-row">
+        <label for="m-basic">Monthly basic + DA (₹)
+          <span class="hint">Used to compute your monthly contribution</span>
+        </label>
+        <input type="number" id="m-basic" min="0" placeholder="e.g. 35000">
+      </div>
+
+      <div class="entry-row">
+        <label for="m-years">Years remaining until retirement/withdrawal
+          <span class="hint"></span>
+        </label>
+        <input type="number" id="m-years" min="0" step="0.5" placeholder="e.g. 20">
+      </div>
+
+      <div class="entry-row">
+        <label for="m-rate">Assumed annual EPF interest rate (%)
+          <span class="hint">Rate is set by EPFO yearly — check the current rate before relying on this</span>
+        </label>
+        <input type="number" id="m-rate" min="0" step="0.05" value="8.25">
+      </div>
+
+      <button class="calc-btn" onclick="calcMaturity()">Post Entry</button>
+
+      <div class="result-block" id="m-result">
+        <div class="stamp" id="m-stamp">Projected<br>Balance</div>
+        <div class="ledger-line"><span>Opening corpus</span><span class="amt" id="m-opening">₹0</span></div>
+        <div class="ledger-line"><span>Total contributions added (12% × 2, employee + employer minus EPS)</span><span class="amt" id="m-contrib">₹0</span></div>
+        <div class="ledger-line"><span>Interest accumulated</span><span class="amt credit" id="m-interest">₹0</span></div>
+        <div class="ledger-line total"><span>Projected maturity balance</span><span class="amt credit" id="m-total">₹0</span></div>
+        <div class="note">Assumes monthly compounding, a constant salary and interest rate throughout, and that EPS-eligible employer contribution (8.33%, capped) is excluded from the interest-bearing EPF corpus. Actual EPFO crediting follows monthly running balance rules and may differ slightly.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  function fmt(n) {
+    return '₹' + Math.round(n).toLocaleString('en-IN');
+  }
+
+  function calcWithdrawal() {
+    const amount = parseFloat(document.getElementById('w-amount').value) || 0;
+    const years = parseFloat(document.getElementById('w-years').value) || 0;
+    const hasPAN = document.getElementById('w-pan').checked;
+    const form15g = document.getElementById('w-form15g').checked;
+
+    let rate = 0;
+    let note = '';
+
+    if (years >= 5) {
+      rate = 0;
+      note = 'Withdrawals after 5+ years of continuous service are exempt from TDS, regardless of amount.';
+    } else if (amount < 50000) {
+      rate = 0;
+      note = 'Withdrawals under ₹50,000 are exempt from TDS, even with under 5 years of service.';
+    } else if (form15g) {
+      rate = 0;
+      note = 'No TDS deducted based on Form 15G/15H declaration — but this is only valid if your total annual income is genuinely below the taxable threshold. Submitting this incorrectly can create a tax notice later.';
+    } else if (hasPAN) {
+      rate = 10;
+      note = 'Standard 10% TDS applies: under 5 years of service, amount over ₹50,000, PAN on file.';
+    } else {
+      rate = 20;
+      note = 'Higher 20% TDS applies because PAN is not linked — linking your PAN before withdrawal would reduce this to 10%.';
+    }
+
+    const tds = amount * (rate / 100);
+    const net = amount - tds;
+
+    document.getElementById('w-gross').textContent = fmt(amount);
+    document.getElementById('w-rate').textContent = rate + '%';
+    document.getElementById('w-tds').textContent = fmt(tds);
+    document.getElementById('w-net').textContent = fmt(net);
+    document.getElementById('w-note').textContent = note;
+    document.getElementById('w-result').classList.add('show');
+
+    const stamp = document.getElementById('w-stamp');
+    stamp.textContent = rate === 0 ? 'No TDS' : rate + '% TDS';
+    stamp.classList.remove('show');
+    void stamp.offsetWidth;
+    stamp.classList.add('show');
+  }
+
+  function calcMaturity() {
+    const corpus = parseFloat(document.getElementById('m-corpus').value) || 0;
+    const basic = parseFloat(document.getElementById('m-basic').value) || 0;
+    const years = parseFloat(document.getElementById('m-years').value) || 0;
+    const annualRate = parseFloat(document.getElementById('m-rate').value) || 0;
+
+    const monthlyRate = annualRate / 100 / 12;
+    const months = Math.round(years * 12);
+
+    // Employee: 12% of basic. Employer: 12% of basic, but 8.33% (capped at wage ceiling)
+    // routed to EPS, remainder to EPF. Simplified: assume employer's EPF-bound share is
+    // roughly 3.67% of basic for salaries above the EPS wage ceiling (a common real-world case).
+    const employeeShare = basic * 0.12;
+    const employerEPFShare = basic * 0.0367;
+    const monthlyContribution = employeeShare + employerEPFShare;
+
+    let balance = corpus;
+    let totalContrib = 0;
+    for (let i = 0; i < months; i++) {
+      balance += monthlyContribution;
+      totalContrib += monthlyContribution;
+      balance += balance * monthlyRate;
+    }
+    const interestEarned = balance - corpus - totalContrib;
+
+    document.getElementById('m-opening').textContent = fmt(corpus);
+    document.getElementById('m-contrib').textContent = fmt(totalContrib);
+    document.getElementById('m-interest').textContent = fmt(interestEarned);
+    document.getElementById('m-total').textContent = fmt(balance);
+    document.getElementById('m-result').classList.add('show');
+
+    const stamp = document.getElementById('m-stamp');
+    stamp.classList.remove('show');
+    void stamp.offsetWidth;
+    stamp.classList.add('show');
+  }
+</script>
+<p style="text-align:center; margin-top:24px;">
+  <a href="privacy.html" style="color:#f0ead6; font-size:12px;">Privacy Policy</a>
+</p>
+</body>
+</html>
